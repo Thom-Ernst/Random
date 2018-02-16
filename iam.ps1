@@ -71,12 +71,33 @@ function Get-Username ($id) {
     return $matches[1]
 }
 
+function Get-Userlogon ($id) {
+    $q = Get-Aduser -Filter {Name -Like $id} | Select-Object SAMaccountname
+    $q -match "@{SAMaccountname=(.*)}" #select names returns a weird string so we must escape it.
+    return $matches[1]
+}
+
 function Get-Multipleusers ($ids) {
     $arrid = $ids -split "," #Split csv into array
     $usrnames = @()
-    foreach ($i in $arrid) { #WIP
-        $q = (Get-Username $i)[1]
-        $usrnames += $q
+    $r = (Read-Host "Input id or name? i/n").ToLower()
+    if ($r -eq "i") { #from id look for name
+        Write-Host "Lookup using id..."
+        foreach ($i in $arrid) {
+            $q = (Get-Username $i)[1]
+            $usrnames += $q
+        }
+    } elseif ($r -eq "n") { #from name look for id
+        Write-Host "Lookup using name..."
+        foreach ($i in $arrid) {
+            $firstname, $lastnames = $i -split ' ' #lastnames is [lastnames samen]
+            $lastname = $lastnames -join ' '
+            $invname = "{0} {1}" -f ($lastname, $firstname)
+            $q = (Get-Userlogon $invname)[1]
+            $usrnames += $q
+        }
+    } else {
+        Write-Host "Error: Bad input!" -ForegroundColor Red
     }
     return $usrnames
 }
