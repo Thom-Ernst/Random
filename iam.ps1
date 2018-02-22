@@ -46,6 +46,7 @@ Set-Alias sft Output-Sfttext
 Function Get-Allmembers ($group) {
     Write-Host "Fetching AD Members..."
     $q = Get-Adgroupmember $group -Recursive | Select-Object Name
+    Write-Host "Found" $q.count -ForegroundColor Green
     $r = (Read-Host "Export as csv? y/n").ToLower()
     if ($r -eq "y") {
         Write-Host "Exporting csv..."
@@ -60,18 +61,29 @@ Function Get-Allmembers ($group) {
 Set-Alias gam Get-Allmembers
 
 Function Find-Adgroup ($name) {
-    $q = "*{0}*" -f ($name)
-    Get-Adgroup -Filter {name -like $q} | Select-Object Name | Out-Gridview
+    $i = "*{0}*" -f ($name)
+    $q = Get-Adgroup -Filter {name -like $i} | Select-Object Name
+    Write-Host "Found" $q.count -ForegroundColor Green
+    $r = (Read-Host "Export as csv? y/n").ToLower()
+    if ($r -eq "y") {
+        Write-Host "Exporting csv..."
+        $q | Export-Csv -Path .\export.csv
+    } elseif ($r -eq "n") {
+        Write-Host "Outputting in a grid..."
+        $q | Out-Gridview
+    } else {
+        Write-Host "Error: Bad input!" -ForegroundColor Red
+    }
 }
 Set-Alias fag Find-Adgroup
 
-function Get-Username ($id) {
+function Get-Username ($id) { #Use in other functions like (function $parameter)[1]
     $q = Get-Aduser -Filter {SAMaccountname -Like $id} | Select-Object Name
     $q -match "@{Name=(.*)}" #select names returns a weird string so we must escape it.
     return $matches[1]
 }
 
-function Get-Userlogon ($id) {
+function Get-Userlogon ($id) { #Use in other functions like (function $parameter)[1]
     $q = Get-Aduser -Filter {Name -Like $id} | Select-Object SAMaccountname
     $q -match "@{SAMaccountname=(.*)}" #select names returns a weird string so we must escape it.
     return $matches[1]
@@ -101,3 +113,4 @@ function Get-Multipleusers ($ids) {
     }
     return $usrnames
 }
+Set-Alias gmu Get-Multipleusers
