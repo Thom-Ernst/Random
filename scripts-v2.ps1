@@ -5,7 +5,8 @@ import-module ActiveDirectory
 #Function Print-Input ($input, $text = "Your input ") { ###Huge WIP
 #    $i = $input
 #    while (!$i) {
-#        Write-Host  "Please enter the needed input..." -ForegroundColor Green
+#    
+#    Write-Host  "Please enter the needed input..." -ForegroundColor Green
 #        $i = Read-Host $text
 #    }
 #    return $i
@@ -31,13 +32,15 @@ Function Print-Output ($query){
         }
     }
     $c = $query.count
-    if ($c -or $c -eq 0) {
+    Write-Host #Line Break
+    if ($c -gt 1 -or $c -eq 0) {
         Write-Host "Found $c" -ForegroundColor Green #How many items?
+        if ($c -ne 0) { #If nothing is found, no need to output anything
+            Get-Input #Output dialogue
+        }
     } else {
         Write-Host "Found 1" -ForegroundColor Green #One item returns customPSobject which is nullvalued
-    }
-    if ($c -ne 0) { #If nothing is found, no need to output anything
-        Get-Input #Output dialogue
+        Write-Host $query -ForegroundColor Yellow
     }
 }
 
@@ -47,14 +50,15 @@ Function Get-InvertedName ($name) { #put first name last or vice versa
     return $lastname + ' ' + $namearr[0] 
 }
 
-Function Get-Name ($logon, $swap = '') { #add 's' to change to firstname name
+Function Get-Name ($logon, $swap) { #add 's' to change to firstname name
     Write-Host "Getting username..."
     $q = Get-ADUser -Filter {SAMAccountName -Like $logon} | Select-Object Name #query for name from samaccountname
     $s = (($q -split '=')[1] -split '}')[0] #no more regex, just splitting on '=' and '}'
     switch ($swap) {
-        s {
-            Write-Host "Reversed"
-            return Get-Invertedname ($s)
+        s { #Needs to default but it doesn't?
+            <#Write-Host "Reversed"
+            return Get-Invertedname ($s)#>
+            return $s
         }
         default {
             return $s
@@ -71,15 +75,17 @@ Function Get-Logon ($name) { #Input name firstname
 
 Function Get-Email ($logon) { #get the email using logon, returns technical address, not named address.
     #query for email
-    $q = Get-ADUser -Filter 
+    Write-Host "Getting email..."
+    $q = Get-ADUser -Filter {SAMAccountName -Like $logon} | Select-Object UserPrincipalName
+    return $q
 }
 
 ##########################################Public
 
 #Get
 
-Function Get-Groups ($name = '') {
-    while ($name -eq '') { #Print-Input $name "Groep name "
+Function Get-Groups ($name) {
+    while (!$name) { #Print-Input $name "Groep name "
         Write-Host  "Please enter the needed input..." -ForegroundColor Green
         $name = Read-Host "Name "
     }
@@ -89,12 +95,69 @@ Function Get-Groups ($name = '') {
    Print-Output $q
 }
 
+Function Get-User ($in, $type <#, $multiple#>) {
+    while (!$in) { #Print-Input $name "Groep name "
+        Write-Host  "Please enter the needed input..." -ForegroundColor Green
+        $in = Read-Host "Logon or Name "
+    }
+    while (!$type) { #Print-Input $name "Groep name "
+        Write-Host  "Please enter the needed input..." -ForegroundColor Green
+        $type = Read-Host "What data do you need? i/n/e "
+    }
+    $iarr = $in -split ","
+    $oarr = New-Object System.Collections.ArrayList
+    foreach ($i in $iarr) {
+        switch ($type) {
+            i {
+                $q = Get-Logon $i
+            }
+            n {
+                $q = Get-Name $i s
+            }
+            e {
+                $q = Get-Email $i
+            }
+            default {
+                Write-Host "Error: Bad input!" -ForegroundColor Red
+            }
+        }
+        $oarr.Add($q) | Out-Null
+    }
+    Print-Output $oarr
+}
+
+Function Get-GroupMembers ($group, $rec) {
+    while (!$group) {
+        Write-Host  "Please enter the needed input..." -ForegroundColor Green
+        $group = Read-Host "AD Group "
+    }
+    switch ($rec) {
+        r {
+            $q = Get-Adgroupmember $group -Recursive | Select-Object Name
+        }
+        default {
+            $q = Get-Adgroupmember $group | Select-Object Name
+        }
+    }
+    Print-Output $q
+}
+
+Function Get-GroupMemberships ($logon) {
+    while (!$logon) {
+        Write-Host  "Please enter the needed input..." -ForegroundColor Green
+        $logon = Read-Host "User login "
+    }
+    Write-Host "Fetching users groups... "
+    $q = Get-AdPrincipalGroupMembership $logon | Select-Object Name
+    Print-Output $q
+}
+
 #Clip
 
 
 
 #Aliases
-
+<#
 Set-Alias gg Get-Groups
 Set-Alias gu Get-User
 Set-Alias ggm Get-GroupMembers
@@ -102,3 +165,4 @@ Set-Alias gum Get-UserMemberships
 Set-Alias cnf Clip-NewFolder
 Set-Alias cnm Clip-NewMailbox
 Set-Alias sft Clip-Sft
+#>
