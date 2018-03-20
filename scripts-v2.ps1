@@ -75,14 +75,16 @@ Function Get-Logon ($name) { #Input name firstname
     #query for samaccountname
     Write-Host "Getting userid..."
     $q = Get-ADUser -Filter {Name -Like $name} | Select-Object SAMAccountName
-    return $q
+    $s = (($q -split '=')[1] -split '}')[0]
+    return $s
 }
 
 Function Get-Email ($logon) { #get the email using logon, returns technical address, not named address.
     #query for email
     Write-Host "Getting email..."
     $q = Get-ADUser -Filter {SAMAccountName -Like $logon} | Select-Object UserPrincipalName
-    return $q
+    $s = (($q -split '=')[1] -split '}')[0]
+    return $s
 }
 
 ##########################################Public
