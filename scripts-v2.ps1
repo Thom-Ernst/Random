@@ -40,7 +40,12 @@ Function Print-Output ($query){
         }
     } else {
         Write-Host "Found 1" -ForegroundColor Green #One item returns customPSobject which is nullvalued
-        Write-Host $query -ForegroundColor Yellow
+        if (($query -split '=').count -gt 1) {
+            $result = (($query -split '=')[1] -split '}')[0]
+        } else {
+            $result = $query
+        }
+        Write-Host $result -ForegroundColor Yellow
     }
 }
 
@@ -157,11 +162,12 @@ Function Get-GroupMemberships ($logon) {
 
 
 #Aliases
-<#
+
 Set-Alias gg Get-Groups
-Set-Alias gu Get-User
+Set-Alias gus Get-User
 Set-Alias ggm Get-GroupMembers
 Set-Alias gum Get-UserMemberships
+<#
 Set-Alias cnf Clip-NewFolder
 Set-Alias cnm Clip-NewMailbox
 Set-Alias sft Clip-Sft
