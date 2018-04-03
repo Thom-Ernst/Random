@@ -23,7 +23,7 @@ Function Print-Output ($query){
             }
             n {
                 Write-Host "Outputting in a grid..."
-                $query | Out-Gridview
+                $query | Out-Gridview -Title "Query Output" #-PassThru #<-needs user input
             }
             default {
                 Write-Host "Error: Bad input!" -ForegroundColor Red
@@ -161,6 +161,25 @@ Function Get-GroupMemberships ($logon) {
 
 #Clip
 
+function Clip-NewFolder ($path) {
+    while (!$path) {
+		Write-Host "Please enter the needed input..." -ForegroundColor Green
+        $path = Read-Host "Folder name "
+	}
+	$output = "Naam Nieuwe AD groep(en) incl. domeinnaam (max. 15): Alles in CORPARG`nDLG_{0}_M`nGG_PROJECT_{0}_M`nNesting in groep(en): GG_PROJECT_{0}_M member maken van DLG_{0}_M`nDLG_{0}_M schrijfrechten geven op gedeelde folder GRPARG\#GRPARG\{0}" -f ($path)
+    Write-Host $output
+	Write-Output $output | clip
+}
+
+function Clip-NewMailbox ($name) {
+    while (!$name) {
+		Write-Host "Please enter the needed input..." -ForegroundColor Green
+        $name = Read-Host "Folder name "
+	}
+    $output = "Naam Nieuwe AD groep(en) incl. domeinnaam (max. 15): Alles in CORPARG`nDLG_MBX_{0}`nGG_PROJECT_MBX_{0}`nNesting in groep(en): GG_PROJECT_MBX_{0} member maken van`nDLG_MBX_{0}`n`nGelieve DLG_MBX_{0} te koppelen aan emailbox {0}@argenta.be" -f ($name)
+    Write-Host $output
+	Write-Output $output | clip
+}
 
 
 #Aliases
@@ -168,7 +187,7 @@ Function Get-GroupMemberships ($logon) {
 Set-Alias gg Get-Groups
 Set-Alias gus Get-User
 Set-Alias ggm Get-GroupMembers
-Set-Alias gum Get-UserMemberships
+Set-Alias gum Get-GroupMemberships
 <#
 Set-Alias cnf Clip-NewFolder
 Set-Alias cnm Clip-NewMailbox
