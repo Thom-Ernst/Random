@@ -12,18 +12,22 @@ import-module ActiveDirectory
 #    return $i
 #}
 
-Function Print-Output ($query){
+Function Print-Output ($query, $search="Query Output"){
     Function Get-Input ($query = $query) {
         $r = (Read-Host "Export as csv? y/n").ToLower()
         switch ($r){ #y,n,default
             y {
-                $f = Read-Host "Name of the file?"
-                Write-Host "Exporting csv..."
+                $f = Read-Host "Name of the file?`nDefault: $search.csv"
+                if (!$f) {
+                    Write-Host "Defaulting name."
+                    $f = $search
+                }
+                Write-Host "Exporting csv as $f.csv..."
                 $query | Export-Csv -Path "$f.csv"
             }
             n {
                 Write-Host "Outputting in a grid..."
-                $query | Out-Gridview -Title "Query Output" #-PassThru #<-needs user input
+                $query | Out-Gridview -Title $search #-PassThru #<-needs user input
             }
             default {
                 Write-Host "Error: Bad input!" -ForegroundColor Red
@@ -96,10 +100,11 @@ Function Get-Groups ($name) {
         Write-Host  "Please enter the needed input..." -ForegroundColor Green
         $name = Read-Host "Name "
     }
+    $identifier = "Get-Groups $name"
     #query the groups
     $i = "*$name*"
     $q = Get-Adgroup -Filter {name -like $i} | Select-Object Name
-   Print-Output $q
+   Print-Output $q $identifier
 }
 
 Function Get-User ($in, $type <#, $multiple#>) {
@@ -111,6 +116,7 @@ Function Get-User ($in, $type <#, $multiple#>) {
         Write-Host  "Please enter the needed input..." -ForegroundColor Green
         $type = Read-Host "What data do you need? i/n/e "
     }
+    $identifier = "Get-User $in"
     $iarr = $in -split ","
     $oarr = New-Object System.Collections.ArrayList
     foreach ($i in $iarr) {
@@ -130,7 +136,7 @@ Function Get-User ($in, $type <#, $multiple#>) {
         }
         $oarr.Add($q) | Out-Null
     }
-    Print-Output $oarr
+    Print-Output $oarr $identifier
 }
 
 Function Get-GroupMembers ($group, $rec) {
@@ -138,6 +144,7 @@ Function Get-GroupMembers ($group, $rec) {
         Write-Host  "Please enter the needed input..." -ForegroundColor Green
         $group = Read-Host "AD Group "
     }
+    $identifier = "Get-GroupMembers $group"
     switch ($rec) {
         r {
             $q = Get-Adgroupmember $group -Recursive | Select-Object Name
@@ -146,7 +153,7 @@ Function Get-GroupMembers ($group, $rec) {
             $q = Get-Adgroupmember $group | Select-Object Name
         }
     }
-    Print-Output $q
+    Print-Output $q $identifier
 }
 
 Function Get-GroupMemberships ($logon) {
@@ -154,9 +161,10 @@ Function Get-GroupMemberships ($logon) {
         Write-Host  "Please enter the needed input..." -ForegroundColor Green
         $logon = Read-Host "User login "
     }
+    $identifier = "Get-GroupsMemberships $logon"
     Write-Host "Fetching users groups... "
     $q = Get-AdPrincipalGroupMembership $logon | Select-Object Name
-    Print-Output $q
+    Print-Output $q $identifier
 }
 
 #Clip
