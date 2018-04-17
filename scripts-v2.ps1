@@ -95,15 +95,26 @@ Function Get-Email ($logon) { #get the email using logon, returns technical addr
 
 #Get
 
-Function Get-Groups ($name) {
+Function Get-Groups ($name, $sv) {
     while (!$name) { #Print-Input $name "Groep name "
         Write-Host  "Please enter the needed input..." -ForegroundColor Green
         $name = Read-Host "Name "
     }
+    if ($sv -eq "d") {
+        $svr = "argenta.be"
+    }
+    elseif (!$sv) {
+        $svr = "CORPARG.LAN"
+    }
+    else {
+        Write-Host "Something in your search went wrong, look at your syntax highlighting!" -ForegroundColor Red
+        break
+    }
+    Write-Host $svr -ForegroundColor DarkGreen
     $identifier = "Get-Groups $name"
     #query the groups
     $i = "*$name*"
-    $q = Get-Adgroup -Filter {name -like $i} | Select-Object Name
+    $q = Get-Adgroup -Filter {name -like $i} -Server $svr | Select-Object Name
    Print-Output $q $identifier
 }
 
@@ -175,20 +186,34 @@ function Clip-NewFolder ($path) {
         $path = Read-Host "Folder name "
 	}
 	$output = "Naam Nieuwe AD groep(en) incl. domeinnaam (max. 15): Alles in CORPARG`nDLG_{0}_M`nGG_PROJECT_{0}_M`nNesting in groep(en): GG_PROJECT_{0}_M member maken van DLG_{0}_M`nDLG_{0}_M schrijfrechten geven op gedeelde folder GRPARG\#GRPARG\{0}" -f ($path)
-    Write-Host $output
+    Write-Host $output -ForegroundColor Green
 	Write-Output $output | clip
 }
 
 function Clip-NewMailbox ($name) {
     while (!$name) {
 		Write-Host "Please enter the needed input..." -ForegroundColor Green
-        $name = Read-Host "Folder name "
+        $name = Read-Host "Mailbox name "
 	}
     $output = "Naam Nieuwe AD groep(en) incl. domeinnaam (max. 15): Alles in CORPARG`nDLG_MBX_{0}`nGG_PROJECT_MBX_{0}`nNesting in groep(en): GG_PROJECT_MBX_{0} member maken van`nDLG_MBX_{0}`n`nGelieve DLG_MBX_{0} te koppelen aan emailbox {0}@argenta.be" -f ($name)
-    Write-Host $output
+    Write-Host $output -ForegroundColor Green
 	Write-Output $output | clip
 }
 
+function Clip-Sft ($name) {
+    while (!$name) {
+		Write-Host "Please enter the needed input..." -ForegroundColor Green
+        $name = Read-Host "Name "
+	}
+    #$name = Get-User $name n #lookup with logon instead of name
+    #$email = Get-User $name e
+    $first,$last = $name.split(" ")
+    $last = $last -join ""
+    $email = "{0}.{1}@argenta.be" -f ($first, $last)
+    $output = "Pseudo Code:`nnew; $name; $email"
+    Write-Host $output -ForegroundColor Green
+    Write-Output $output | clip
+}
 
 #Aliases
 
@@ -196,8 +221,7 @@ Set-Alias gg Get-Groups
 Set-Alias gus Get-User
 Set-Alias ggm Get-GroupMembers
 Set-Alias gum Get-GroupMemberships
-<#
+
 Set-Alias cnf Clip-NewFolder
 Set-Alias cnm Clip-NewMailbox
 Set-Alias sft Clip-Sft
-#>
