@@ -14,9 +14,9 @@ import-module ActiveDirectory
 
 Function Print-Output ($query, $search="Query Output"){
     Function Get-Input ($query = $query) {
-        $r = (Read-Host "Export as csv? y/n").ToLower()
-        switch ($r){ #y,n,default
-            y {
+        $r = (Read-Host "Export as csv,grid or interactive grid? `nNote that an interactive grid will only work for AD Groups!`n`nc/g/i").ToLower()
+        switch ($r){ #c,g,i,default
+            c {
                 $f = Read-Host "Name of the file?`nDefault: $search.csv"
                 if (!$f) {
                     Write-Host "Defaulting name."
@@ -25,9 +25,15 @@ Function Print-Output ($query, $search="Query Output"){
                 Write-Host "Exporting csv as $f.csv..."
                 $query | Export-Csv -Path "$f.csv"
             }
-            n {
+            g {
                 Write-Host "Outputting in a grid..."
-                $query | Out-Gridview -Title $search #-PassThru #<-needs user input
+                $query | Out-Gridview -Title $search
+            }
+            i {
+                Write-Host "Outputting in an interactive grid..."
+                $out = $query | Out-Gridview -Title $search -PassThru #<-needs user input
+                Write-Host "Running new search!" -ForegroundColor Yellow
+                Get-Groupmembers (($out -split '=')[1] -split '}')[0] r
             }
             default {
                 Write-Host "Error: Bad input!" -ForegroundColor Red
