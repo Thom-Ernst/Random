@@ -215,6 +215,7 @@ Function Get-GroupMemberships ($logon, $rec) {
                 }
                 Get-UserNestedGroups $logon $f
                 $q = import-csv $f
+                return $q | Out-Gridview -Title $identifier
 
         }
         default {
