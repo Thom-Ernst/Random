@@ -74,6 +74,12 @@ Function Get-InvertedName ($name) { #put first name last or vice versa
     return $lastname + ' ' + $namearr[0] 
 }
 
+Function Get-InvertedLastName ($name) { #put first name last or vice versa
+    $namearr = $name -split ' '
+    $lastname = $namearr[0..($namearr.count-2)] -join ' '
+    return $namearr[$namearr.count-1] + ' ' + $lastname
+}
+
 Function Get-Name ($logon, $swap) { #add 's' to change to firstname name
     Write-Host "Getting username..."
     $q = Get-ADUser -Filter {SAMAccountName -Like $logon} | Select-Object Name #query for name from samaccountname
@@ -171,6 +177,9 @@ Function Get-User ($in, $type <#, $multiple#>) {
             e {
                 $q = Get-Email $i
             }
+            t {
+                $q = Get-InvertedLastName $i
+            }
             default {
                 Write-Host "Error: Bad input!" -ForegroundColor Red
             }
@@ -238,12 +247,16 @@ function Clip-NewFolder ($path) {
 	Write-Output $output | clip
 }
 
-function Clip-NewMailbox ($name) {
+function Clip-NewMailbox ($name, $group) {
     while (!$name) {
 		Write-Host "Please enter the needed input..." -ForegroundColor Green
         $name = Read-Host "Mailbox name "
 	}
-    $output = "Naam Nieuwe AD groep(en) incl. domeinnaam (max. 15): Alles in CORPARG`nDLG_MBX_{0}`nGG_PROJECT_MBX_{0}`nNesting in groep(en): GG_PROJECT_MBX_{0} member maken van`nDLG_MBX_{0}`n`nGelieve DLG_MBX_{0} te koppelen aan emailbox {0}@argenta.be" -f ($name)
+    while (!$group) {
+		Write-Host "Please enter the needed input..." -ForegroundColor Green
+        $group = Read-Host "AD Group "
+	}
+    $output = "Aanmaken in exchange:`n{0}@argenta.be`nAanmaken in AD:`nCORPARG\DLG_MBX_{1}, `nOU IAM Groups - CORPARG\GG_PROJECT_MBX_{1}`nConfiguratie:`nDLG_MBX_{1} schrijfrechten geven op {0}@argenta.be`nGG_PROJECT_MBX_{1} member maken van DLG_MBX_{1}" -f ($name,$group)
     Write-Host $output -ForegroundColor Green
 	Write-Output $output | clip
 }
