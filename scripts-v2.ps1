@@ -86,7 +86,8 @@ Function Get-Name ($logon, $swap) { #add 's' to change to firstname name
     $s = (($q -split '=')[1] -split '}')[0] #no more regex, just splitting on '=' and '}'
     if ($swap) {
         Write-Host "Reversed"
-        return Get-Invertedname $s
+        #return Get-Invertedname $s
+        return $s
     } else {
         return $s
     }
@@ -118,6 +119,12 @@ Function Get-SamEmail ($logon) { #get the email using logon, returns technical a
     $q = Get-ADUser -Filter {SAMAccountName -Like $logon} | Select-Object UserPrincipalName
     $s = (($q -split '=')[1] -split '}')[0]
     return $s
+}
+
+Function Get-Fulluserinfo ($logon) {
+    Write-Host "Getting ad user info..."
+    $q = Get-ADUser $logon -Properties EmailAddress | Select-Object Name,SamAccountName,EmailAddress,Enabled,GivenName,Surname,UserPrincipalName,DistinguishedName
+    return $q
 }
 
 Function Get-UserNestedGroups ($logon, $path) {
@@ -179,6 +186,9 @@ Function Get-User ($in, $type <#, $multiple#>) {
             }
             t {
                 $q = Get-InvertedLastName $i
+            }
+            f {
+                $q = Get-Fulluserinfo $i
             }
             default {
                 Write-Host "Error: Bad input!" -ForegroundColor Red
