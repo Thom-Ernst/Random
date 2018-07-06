@@ -1,10 +1,15 @@
-﻿Add-Type -AssemblyName System.Windows.Forms
+<# This form was created using POSHGUI.com  a free online gui designer for PowerShell
+.NAME
+    IAM Role Editor
+#>
+
+Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 #region begin GUI{ 
 
 $RoleEditor                      = New-Object system.Windows.Forms.Form
-$RoleEditor.ClientSize           = '1000,170'
+$RoleEditor.ClientSize           = '1100,170'
 $RoleEditor.text                 = "IAM Role Editor"
 $RoleEditor.BackColor            = "#d2ebc6"
 $RoleEditor.TopMost              = $false
@@ -34,7 +39,7 @@ $BrowseButton.Font               = 'Microsoft Sans Serif,10,style=Bold'
 $BrowseButton.ForeColor          = ""
 
 $XMLViewer                       = New-Object system.Windows.Forms.DataGridView
-$XMLViewer.width                 = 980
+$XMLViewer.width                 = 1060
 $XMLViewer.height                = 75
 $XMLViewerData = @(@("","","","",""))
 $XMLViewer.ColumnCount = 5
@@ -88,16 +93,18 @@ $Commit.Add_Click({ Set-XML })
 
 #endregion GUI }
 
-$XMLViewer.Columns[0].Width = 200
-$XMLViewer.Columns[1].Width = 200
-$XMLViewer.Columns[2].Width = 220
+$XMLViewer.Columns[0].Width = 220
+$XMLViewer.Columns[1].Width = 220
+$XMLViewer.Columns[2].Width = 240
 $XMLViewer.Columns[3].Width = 50
-$XMLViewer.Columns[4].Width = 260
+$XMLViewer.Columns[4].Width = 280
 $XMLViewer.Rows.RemoveAt(0)
 $XMLViewer.Rows.RemoveAt(0)
 $XMLViewer.Rows.RemoveAt(0)
 $XMLViewer.Rows.RemoveAt(0)
 $XMLViewer.Rows.RemoveAt(0)
+
+#Write your logic code here
 
 #pre-vars
 $dir = "$HOME\designer_workspace\IAM PRD\Model\Provisioning\AppConfig\RoleConfig\RoleDefs\Level10\"
@@ -106,7 +113,7 @@ $dir = "$HOME\designer_workspace\IAM PRD\Model\Provisioning\AppConfig\RoleConfig
 
 Function Get-XML {
     $Statusbar.Value = 0
-    $pt = Open-FileBrowser
+    $pt = Get-FullIAMRoles
     if (!$pt) {
         $StatusBarLabel.text = "No new Role selected"
         return
@@ -115,6 +122,7 @@ Function Get-XML {
     $global:path = $pt
     $BrowsePath.text = $path
     [xml]$global:cursor = Get-Content $path
+    $Statusbar.Value = 50
     Update-RoleData ($cursor)
     $Statusbar.Value = 100
     $StatusBarLabel.text = "Role Selected"
@@ -158,12 +166,22 @@ Function Update-RoleData ($cur) {
     $XMLViewer.rows.add($cname,$lname,$ldesc,$owner,$entitlements)
 }
 
-Function Open-FileBrowser {
+<#Function Open-FileBrowser {
     $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
     $OpenFileDialog.initialDirectory = $dir
     $OpenFileDialog.filter = "IAM Role (*.role10)| *.role10"
     $OpenFileDialog.ShowDialog() | Out-Null
     $OpenFileDialog.filename
+}#>
+
+function Get-FullIAMRoles {
+    $q = Get-ChildItem -Path $global:dir *.role10  | Select-Object Basename | Out-GridView -PassThru
+    if (!$q) {
+        Write-Host "no role selected"
+        $StatusBarLabel.text = "No role selected"
+        return
+    }
+    return $global:dir+$q.BaseName+".role10"
 }
 
 Function Set-Entitlements ($rent) {
