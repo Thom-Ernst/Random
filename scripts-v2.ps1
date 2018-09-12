@@ -1,4 +1,4 @@
-import-module ActiveDirectory
+#import-module ActiveDirectory
 
 ##########################################Private
 
@@ -12,10 +12,11 @@ import-module ActiveDirectory
 #    return $i
 #}
 
-Function Print-Output ($query, $search="Query Output"){
+Function Out-Query ($query, $search="Query Output"){
     Function Get-Input ($query = $query) {
-        $r = (Read-Host "Export as csv, grid or interactive grid? `nInteractive grid will only work for AD Groups!`n`nc/g/i").ToLower()
-        switch ($r){ #c,g,i,default
+        $r = (Read-Host "Export as csv, excel, grid or interactive grid?`n`nc/e/g/i").ToLower()
+        #$r = 'g'
+        switch ($r){ #c,g,i,e,default
             c {
                 $f = Read-Host "Name of the file?`nDefault: $search.csv"
                 if (!$f) {
@@ -37,9 +38,18 @@ Function Print-Output ($query, $search="Query Output"){
                     Get-Groupmembers (($out -split '=')[1] -split '}')[0] r
                 }
             }
-            default {
-                Write-Host "Error: Bad input!" -ForegroundColor Red
-                Get-Input
+            e {
+                $f = Read-Host "Name of the file?`nDefault: $search.xlsx"
+                    if (!$f) {
+                        Write-Host "Defaulting name."
+                        $f = $search
+                    }
+                    Write-Host "Exporting csv as $f.xlsx..."
+                    $query | Export-Excel -Path "$f.xlsx" -Show
+                }
+                default {
+                    Write-Host "Error: Bad input!" -ForegroundColor Red
+                    Get-Input
             }
         }
     }
@@ -62,7 +72,7 @@ Function Print-Output ($query, $search="Query Output"){
     }
 }
 
-Function Generate-XmlDoc ($logon, $path) {
+Function Export-XmlDoc ($logon, $path) {
     Write-Host "Writing xml for $logon... `nFind the results in $path"
     $out = '<?xml version="1.0"?><CommandLineFile xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">  <QueryString>&lt;?xml version="1.0" encoding="utf-16"?&gt;&lt;!--AD Info Query - Application Version 1.7.9.0--&gt;&lt;Query&gt;&lt;QueryType&gt;7&lt;/QueryType&gt;&lt;Name&gt;User with specified username&lt;/Name&gt;&lt;IconIndex&gt;72&lt;/IconIndex&gt;&lt;AllowModify&gt;False&lt;/AllowModify&gt;&lt;CreatedOn&gt;23/01/2011 21:37:28&lt;/CreatedOn&gt;&lt;Author&gt;Cjwdev&lt;/Author&gt;&lt;Parameters&gt;&lt;Parameter&gt;&lt;Attribute&gt;UsernamePre2000&lt;/Attribute&gt;&lt;Operator&gt;is&lt;/Operator&gt;&lt;Prompt&gt;False&lt;/Prompt&gt;&lt;NoValue&gt;False&lt;/NoValue&gt;&lt;Value&gt;{0}&lt;/Value&gt;&lt;/Parameter&gt;&lt;/Parameters&gt;&lt;/Query&gt;</QueryString>  <Domain>CORPARG.LAN</Domain>  <CustomAttributes />  <IncludedAttributeIds>    <string>AllGroupMembership</string>    <string>Cn</string>  </IncludedAttributeIds>  <ContainerPath />  <IncludeSubContainers>true</IncludeSubContainers>  <ExportPath>{1}</ExportPath>  <LdapPort>389</LdapPort>  <GcPort>3268</GcPort></CommandLineFile>' -f ($logon,$path)
     $out | Out-File -FilePath config.xml
@@ -123,14 +133,29 @@ Function Get-SamEmail ($logon) { #get the email using logon, returns technical a
 
 Function Get-Fulluserinfo ($logon) {
     Write-Host "Getting ad user info..."
-    $q = Get-ADUser $logon -Properties EmailAddress | Select-Object Name,SamAccountName,EmailAddress,Enabled,GivenName,Surname,UserPrincipalName,DistinguishedName
+    $q = Get-ADUser $logon -Properties EmailAddress,Title | Select-Object Name,SamAccountName,EmailAddress,Enabled,GivenName,Surname,UserPrincipalName,DistinguishedName,Title
     return $q
 }
 
 Function Get-UserNestedGroups ($logon, $path) {
     Write-Host "Generate $path"
-    Generate-XmlDoc $logon $path
-    .\ADInfoCmd.exe /config "config.xml"
+    Export-XmlDoc $logon $path
+    .\ADInfoCmd.exe /config "config.xml" | Out-Null
+}
+
+Function Get-AdUserMemberships($logon) {
+    while (!$logon) {
+        Write-Host "Please enter the needed input..." -ForegroundColor Green
+        $logon = Read-Host "User login "
+    }
+    #$f = Read-Host "Name of the file?`nDefault: $logon.csv"
+    if (!$f) {
+        Write-Host "Defaulting name."
+        $f = "$logon.csv"
+    }
+    Get-UserNestedGroups $logon $f
+    $q = import-csv $f
+    return $q
 }
 
 
@@ -158,7 +183,24 @@ Function Get-Groups ($name, $sv) {
     #query the groups
     $i = "*$name*"
     $q = Get-Adgroup -Filter {name -like $i} -Server $svr | Select-Object Name
-   Print-Output $q $identifier
+   Out-Query $q $identifier
+}
+
+Function Get-MultipleGroups ($names) {
+    while (!$names) { #Print-Input $name "Groep name "
+        Write-Host  "Please enter the needed input..." -ForegroundColor Green
+        $names = Read-Host "Names "
+    }
+    $oarr = New-Object System.Collections.ArrayList
+    $identifier = 'Get-MultipleGroups'
+    foreach ($name in $names -split ',') {
+        $q = Get-Adgroup -Filter {name -like $name} | Select-Object Name
+        if (!$q) {
+        $q = "Could not find result for $i"
+        }
+        $oarr.Add($q) | Out-Null
+    }
+    Out-Query $oarr $identifier
 }
 
 Function Get-User ($in, $type <#, $multiple#>) {
@@ -199,7 +241,7 @@ Function Get-User ($in, $type <#, $multiple#>) {
         }
         $oarr.Add($q) | Out-Null
     }
-    Print-Output $oarr $identifier
+    Out-Query $oarr $identifier
 }
 
 Function Get-GroupMembers ($group, $rec) {
@@ -216,7 +258,7 @@ Function Get-GroupMembers ($group, $rec) {
             $q = Get-Adgroupmember $group | Select-Object Name
         }
     }
-    Print-Output $q $identifier
+    Out-Query $q $identifier
 }
 
 Function Get-GroupMemberships ($logon, $rec) {
@@ -237,17 +279,35 @@ Function Get-GroupMemberships ($logon, $rec) {
                 return $q | Out-Gridview -Title $identifier
 
         }
+        m {
+            $users = $logon -split ','
+            $q = @()
+            foreach ($user in $users) {
+                $q += Get-AdUserMemberships $user
+            }
+        }
         default {
             Write-Host "Fetching users groups... "
             $q = Get-AdPrincipalGroupMembership $logon | Select-Object Name
         }
+        t {
+            $users = $logon -split ','
+            $q = @()
+            foreach ($user in $users) {
+                $usernm = get-aduser -Filter 'samAccountName -like $user' | Select-Object Name
+                $useraccess = Get-AdPrincipalGroupMembership $user | Select-Object Name
+                $userobj = New-Object PSObject
+                $userobj | Add-Member Noteproperty $usernm.name $useraccess.name
+                $q += $userobj
+            }
+        }
     }
-    Print-Output $q $identifier
+    Out-Query $q $identifier
 }
 
 #Clip
 
-function Clip-NewFolder ($path) {
+function Out-NewFolder ($path) {
     while (!$path) {
 		Write-Host "Please enter the needed input..." -ForegroundColor Green
         $path = Read-Host "Folder name "
@@ -257,7 +317,7 @@ function Clip-NewFolder ($path) {
 	Write-Output $output | clip
 }
 
-function Clip-NewMailbox ($name, $group) {
+function Out-NewMailbox ($name, $group) {
     while (!$name) {
 		Write-Host "Please enter the needed input..." -ForegroundColor Green
         $name = Read-Host "Mailbox name "
@@ -271,7 +331,7 @@ function Clip-NewMailbox ($name, $group) {
 	Write-Output $output | clip
 }
 
-function Clip-Sft ($name) {
+function Out-Sft ($name) {
     while (!$name) {
 		Write-Host "Please enter the needed input..." -ForegroundColor Green
         $name = Read-Host "Name "
@@ -284,6 +344,15 @@ function Clip-Sft ($name) {
     Write-Output $output | clip
 }
 
+
+#Externals
+<#Function Show-RoleEditor {
+    .\RoleEditor.ps1
+}
+Set-Alias sre Show-RoleEditor#>
+
+
+
 #Aliases
 
 Set-Alias gg Get-Groups
@@ -291,6 +360,6 @@ Set-Alias gus Get-User
 Set-Alias ggm Get-GroupMembers
 Set-Alias gum Get-GroupMemberships
 
-Set-Alias cnf Clip-NewFolder
-Set-Alias cnm Clip-NewMailbox
-Set-Alias sft Clip-Sft
+Set-Alias cnf Out-NewFolder
+Set-Alias cnm Out-NewMailbox
+Set-Alias sft Out-Sft
