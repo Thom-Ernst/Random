@@ -23,7 +23,7 @@ Function Out-Query ($query, $search="Query Output"){
                     Write-Host "Defaulting name."
                     $f = $search
                 }
-                Write-Host "Exporting csv as $f.csv..."
+                Write-Host "Exporting data as $f.csv..."
                 $query | Export-Csv -Path "$f.csv"
             }
             g {
@@ -44,7 +44,7 @@ Function Out-Query ($query, $search="Query Output"){
                         Write-Host "Defaulting name."
                         $f = $search
                     }
-                    Write-Host "Exporting csv as $f.xlsx..."
+                    Write-Host "Exporting data as $f.xlsx..."
                     $query | Export-Excel -Path "$f.xlsx" -Show
                 }
                 default {
@@ -143,7 +143,7 @@ Function Get-UserNestedGroups ($logon, $path) {
     .\ADInfoCmd.exe /config "config.xml" | Out-Null
 }
 
-Function Get-AdUserMemberships($logon) {
+Function Get-AdUserMemberships ($logon) {
     while (!$logon) {
         Write-Host "Please enter the needed input..." -ForegroundColor Green
         $logon = Read-Host "User login "
@@ -156,6 +156,17 @@ Function Get-AdUserMemberships($logon) {
     Get-UserNestedGroups $logon $f
     $q = import-csv $f
     return $q
+}
+
+Function Get-OrganizationInfo ($logon) {
+    while (!$logon) {
+        Write-Host "Please enter the needed input..." -ForegroundColor Green
+        $logon = Read-Host "User login "
+    }
+    $userinfo = Get-ADUser $logon -Properties Title,Department,Manager | Select-Object Title,Department,Manager
+    $manager = Get-Aduser $userinfo.Manager | Select-Object Name
+    $out = "{0}`t{1}`t{2}" -f $userinfo.Title,$userinfo.Department,$manager.Name
+    return $out
 }
 
 
@@ -234,6 +245,12 @@ Function Get-User ($in, $type <#, $multiple#>) {
             }
             default {
                 Write-Host "Error: Bad input!" -ForegroundColor Red
+            }
+            o {
+                #organizational output
+                $q = Get-OrganizationInfo $i
+                Write-Host $q
+                [Windows.Clipboard]::SetText($q.ToString())
             }
         }
         if (!$q) {
