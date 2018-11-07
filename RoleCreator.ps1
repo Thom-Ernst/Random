@@ -22,6 +22,7 @@ Function Read-ExcelInput ($role) {
         LDesc = $role.Description
         Owner = $role.Owner
         Entitlements = $entitlements
+        RequestType = $role.RequestType
     }
     return $RoleObject
 }
@@ -46,11 +47,6 @@ Function Out-BatchRequestXML ($rolesitems) {
         $statusattr.SetAttribute("name","nrfstatus")
         $statusattr.AppendChild($batch.CreateElement("value")).InnerText = "50"
         $rolerequest.AppendChild($statusattr)
-        #requestdef
-        $requestdefattr = $batch.CreateNode("element","attr",$null)
-        $requestdefattr.SetAttribute("name","nrfrequestdef")
-        $requestdefattr.AppendChild($batch.CreateElement("value")).InnerText = 'cn=Project Role Approval,cn=RequestDefs,cn=AppConfig,cn=UserApplication,cn=DriverSet,ou=RESOURCES,o=SYSTEM' #make variable for this in future
-        $rolerequest.AppendChild($requestdefattr)
         #rolecategorykey
         $rolecategorykeyattr = $batch.CreateNode("element","attr",$null)
         $rolecategorykeyattr.SetAttribute("name","nrfrolecategorykey")
@@ -96,10 +92,7 @@ Function Out-BatchRequestXML ($rolesitems) {
         $entitlementrefattr = $batch.CreateNode("element","attr",$null)
         $entitlementrefattr.SetAttribute("name","nrfentitlementref")
         foreach ($entitlement in $role.Entitlements) {
-            $entitlementxml =  'cn={1},cn={0},cn=DriverSet,ou=RESOURCES,o=SYSTEM#0#<ref>
-            <id/>
-            <param>{2}</param>	
-        </ref>
+            $entitlementxml = 'cn={1},cn={0},cn=DriverSet,ou=RESOURCES,o=SYSTEM#0#<ref><id/><param>{2}</param></ref>
         '-f $entitlement.Driver,$entitlement.Type,$entitlement.Group
             $base64entitlement = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($entitlementxml))
             $entvalue = $batch.CreateElement("value")
@@ -107,24 +100,34 @@ Function Out-BatchRequestXML ($rolesitems) {
             $xsi_type = $batch.CreateNode("attribute", "xsi", "type", "http://www.w3c.org/2001/XMLSchema-instance")
             $xsi_type.Value = "xsd:base64Binary"
             $entvalue.SetAttributeNode($xsi_type)
-            #$entvalue.SetAttribute('xsi:type','xsd:base64Binary')
             $entitlementrefattr.AppendChild($entvalue)
+            $rolerequest.AppendChild($entitlementrefattr)
         }
         }
-        $rolerequest.AppendChild($entitlementrefattr)
+        #requestdef
+        if ($role.RequestType) {
+            $requestdefattr = $batch.CreateNode("element","attr",$null)
+            $requestdefattr.SetAttribute("name","nrfrequestdef")
+            $requestdefattr.AppendChild($batch.CreateElement("value")).InnerText = 'cn='+$role.RequestType+',cn=RequestDefs,cn=AppConfig,cn=UserApplication,cn=DriverSet,ou=RESOURCES,o=SYSTEM' #make variable for this in future
+            $rolerequest.AppendChild($requestdefattr)
+        }
         ###Append Role to Batchrequest
         $req.AppendChild($rolerequest)
     }
     $batch.AppendChild($req)
-    $batch.Save("test.xml")
+    $batch.Save("newroles.xml")
 }
 
 Function Create-Roles ($file) {
+    if (!$file) {
+        $file = '.\rolexcel.xlsx'
+    }
     $xls = Import-Excel $file
     $roleitems = @()
     foreach ($row in $xls) {
         $role = Read-ExcelInput $row
         $roleitems += $role
     }
-    Out-BatchRequestXML $roleitems
+    Out-BatchRequestXML $roleitems | Out-Null
+    
 }
