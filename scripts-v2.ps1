@@ -24,7 +24,7 @@ Function Out-Query ($query, $search="Query Output"){
                     $f = $search
                 }
                 Write-Host "Exporting data as $f.csv..."
-                $query | Export-Csv -Path "$f.csv"
+                $query | Export-Csv -Path "./filedump/$f.csv"
             }
             g {
                 Write-Host "Outputting in a grid..."
@@ -45,7 +45,7 @@ Function Out-Query ($query, $search="Query Output"){
                         $f = $search
                     }
                     Write-Host "Exporting data as $f.xlsx..."
-                    $query | Export-Excel -Path "$f.xlsx" -Show
+                    $query | Export-Excel -Path "./filedump/$f.xlsx" -Show
                 }
                 default {
                     Write-Host "Error: Bad input!" -ForegroundColor Red
@@ -93,42 +93,34 @@ Function Get-InvertedLastName ($name) { #put first name last or vice versa
 Function Get-Name ($logon, $swap) { #add 's' to change to firstname name
     Write-Host "Getting username..."
     $q = Get-ADUser -Filter {SAMAccountName -Like $logon} | Select-Object Name #query for name from samaccountname
-    $s = (($q -split '=')[1] -split '}')[0] #no more regex, just splitting on '=' and '}'
     if ($swap) {
-        Write-Host "Reversed"
         #return Get-Invertedname $s
-        return $s
+        return $q.Name
     } else {
-        return $s
+        return $q.Name
     }
 }
 
-Function Get-Logon ($name, $swap) { #Input name firstname
+Function Get-Logon ($name) { #Input firstname lastname
     #query for samaccountname
-    if (!$swap) {
-        Write-Host "Reversed"
-        $name = Get-Invertedname $name
-    }
+    $name = Get-Invertedname $name
     Write-Host "Getting userid..."
     $q = Get-ADUser -Filter {Name -Like $name} | Select-Object SAMAccountName
-    $s = (($q -split '=')[1] -split '}')[0]
-    return $s
+    return $q.SAMAccountName
 }
 
 Function Get-Email ($logon) { #get the email using logon, returns named address.
     #query for email
     Write-Host "Getting email..."
     $q = Get-ADUser -Filter {SAMAccountName -Like $logon} -Properties EmailAddress | Select-Object EmailAddress
-    $s = (($q -split '=')[1] -split '}')[0]
-    return $s
+    return $q.EmailAddress
 }
 
 Function Get-SamEmail ($logon) { #get the email using logon, returns technical address, not named address. ##WIP
     #query for email
     Write-Host "Getting email..."
     $q = Get-ADUser -Filter {SAMAccountName -Like $logon} | Select-Object UserPrincipalName
-    $s = (($q -split '=')[1] -split '}')[0]
-    return $s
+    return $q.UserPrincipalName
 }
 
 Function Get-Fulluserinfo ($logon) {
@@ -293,7 +285,7 @@ Function Get-GroupMemberships ($logon, $rec) {
                 }
                 Get-UserNestedGroups $logon $f
                 $q = import-csv $f
-                return $q | Out-Gridview -Title $identifier
+                return $q.'Group Membership (All)' -split ';  ' | Out-Gridview -Title $identifier
 
         }
         m {
@@ -348,7 +340,7 @@ function Out-NewMailbox ($name, $group) {
 	Write-Output $output | clip
 }
 
-function Out-Sft ($name) {
+Function Out-Sft ($name) {
     while (!$name) {
 		Write-Host "Please enter the needed input..." -ForegroundColor Green
         $name = Read-Host "Name "
@@ -356,19 +348,14 @@ function Out-Sft ($name) {
     #$name = Get-User $name n #lookup with logon instead of name
     $id = Get-Logon $name
     $email = Get-Email $id
-    $output = "`nPseudo Code:`nnew; $name; $email"
+    $output = "Pseudo Code:`nnew; $name; $email"
     Write-Host $output -ForegroundColor Green
     Write-Output $output | clip
 }
 
-
-#Externals
-<#Function Show-RoleEditor {
-    .\RoleEditor.ps1
+Function Out-Commas ($i) {
+    Set-Clipboard -Value (($i -split "`r`n") -join ',').ToString()
 }
-Set-Alias sre Show-RoleEditor#>
-
-
 
 #Aliases
 
@@ -380,3 +367,4 @@ Set-Alias gum Get-GroupMemberships
 Set-Alias cnf Out-NewFolder
 Set-Alias cnm Out-NewMailbox
 Set-Alias sft Out-Sft
+Set-Alias ocm Out-Commas
