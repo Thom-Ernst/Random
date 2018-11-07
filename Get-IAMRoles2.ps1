@@ -1,16 +1,21 @@
-Function Open-RoleGridLevel10 ($list) {
-    #$date = (Get-ChildItem .\roles.csv).LastWriteTime
-    $date = 'TODO - update this code'
+Function Open-RoleGrid ($list,$level) {
+    if ($level -eq 10) {
+        $text = 'Level10 Status'
+        $date = (Get-ChildItem .\level10.csv).LastWriteTime
+    }
+    elseif ($level -eq 30) {
+        $text = 'Level30 Status'
+        $date = (Get-ChildItem .\level30.csv).LastWriteTime
+    }
     $roleselected = $list[0]
-
-        $selectedrole = $list | Out-GridView -PassThru -Title "Level10/30 status - $date"
-        if ($selectedrole) {
-            $roleselected = $selectedrole.nrfEntitlementRef -split "`r`n" | Out-GridView -PassThru -Title $selectedrole.cn
-        }
+        $selectedrole = $list | Out-GridView  -Title  "$text - $date"
+        <#if ($selectedrole) {
+            $roleselected = $selectedrole.nrfEntitlementRef -split "`r`n" | Out-GridView -Title $selectedrole.cn
+        }#>
     }
 
 
-function Parse-Level10Roles {
+Function Parse-Level10Roles {
     $path = '.\level10.csv'
     $q = import-csv $path
     foreach ($role in $q) {
@@ -19,7 +24,7 @@ function Parse-Level10Roles {
         if ($role.nrfLocalizedNames) {
             $name = $role.nrfLocalizedNames
             $Matches = ''
-            $name -Match '~(.+)\|'
+            $name -Match '~(.+)\|' | out-null
             $newname = $Matches[1]
             $role.nrfLocalizedNames = $newname
         }
@@ -28,7 +33,7 @@ function Parse-Level10Roles {
         if ($role.nrfLocalizedDescrs) {
             $description = $role.nrfLocalizedDescrs
             $Matches = ''
-            $description -Match '~(.+)\|'
+            $description -Match '~(.+)\|' | out-null
             $newdescription = $Matches[1]
             $role.nrfLocalizedDescrs = $newdescription
         }
@@ -37,7 +42,7 @@ function Parse-Level10Roles {
         if ($role.owner) {
             $owner = $role.owner
             $Matches = ''
-            $owner -Match 'cn=(.+),ou=(.+),ou.+'
+            $owner -Match 'cn=(.+),ou=(.+),ou.+' | out-null
             $newowner = $Matches[1,2] -join ','
             $role.owner = $newowner
         }
@@ -48,13 +53,13 @@ function Parse-Level10Roles {
             $arr = New-Object System.Collections.ArrayList
             foreach ($entitlement in $entitlements) {
                 $Matches = ''
-                $entitlement -Match 'cn=(.+),cn=.*,cn=.*'
+                $entitlement -Match 'cn=(.+),cn=.*,cn=.*' | out-null
                 $entitlementtype = $Matches[1]
                 $Matches = ''
-                $entitlement -Match '<param>(.+)</param>'
+                $entitlement -Match '<param>(.+)</param>' | out-null
                 $entitlementparam = $Matches[1]
                 $entitlementfull = "$entitlementtype,$entitlementparam"
-                $arr.Add($entitlementfull)
+                $arr.Add($entitlementfull) | out-null
             }
             # Row for each nrfentitlement type
             $newentitlements = $arr -join "`r`n"
@@ -64,16 +69,16 @@ function Parse-Level10Roles {
         if ($role.nrfRequestDef){
             $requestdef = $role.nrfRequestDef
             $Matches = ''
-            $requestdef -Match 'cn=(.+),cn=RequestDefs,cn=.+,ou.+'
+            $requestdef -Match 'cn=(.+),cn=RequestDefs,cn=.+,ou.+' | out-null
             $newreqdef = $Matches[1]
             $role.nrfRequestDef = $newreqdef
         }
     }
     $global:Level10RoleList = $q
-    Open-RoleGridLevel10 $Level10RoleList
+    Open-RoleGrid $Level10RoleList 10
 }
 
-function Parse-Level30Roles {
+Function Parse-Level30Roles {
     $path = '.\level30.csv'
     $q = import-csv $path
     foreach ($role in $q) {
@@ -84,13 +89,13 @@ function Parse-Level30Roles {
             $arr = New-Object System.Collections.ArrayList
             foreach ($entitlement in $entitlements) {
                 $Matches = ''
-                $entitlement -Match 'cn=(.+),cn=.*,cn=.*'
+                $entitlement -Match 'cn=(.+),cn=.*,cn=.*' | out-null
                 $entitlementtype = $Matches[1]
                 $Matches = ''
-                $entitlement -Match '<param>(.+)</param>'
+                $entitlement -Match '<param>(.+)</param>' | out-null
                 $entitlementparam = $Matches[1]
                 $entitlementfull = "$entitlementtype,$entitlementparam"
-                $arr.Add($entitlementfull)
+                $arr.Add($entitlementfull) | out-null
             }
             # Row for each nrfentitlement type
             $newentitlements = $arr -join "`r`n"
@@ -98,16 +103,16 @@ function Parse-Level30Roles {
         }
     }
     $global:Level30RoleList = $q
-    Open-RoleGridLevel10 $Level30RoleList
+    Open-RoleGrid $Level30RoleList 30
 }
 
 function Get-IamRole ($search){
-    $FilteredRoleList = $IAMRoleList | Where-Object cn -Like *$search*
-    Open-RoleGridLevel10 $FilteredRoleList
+    $FilteredRoleList = $Level10RoleList | Where-Object cn -Like *$search*
+    Open-RoleGrid $FilteredRoleList 10
 }
 function Get-IamEntitlement ($search){
-    $FilteredRoleList = $IAMRoleList | Where-Object nrfEntitlementRef -Like *$search*
-    Open-RoleGridLevel10 $FilteredRoleList
+    $FilteredRoleList = $Level10RoleList | Where-Object nrfEntitlementRef -Like *$search*
+    Open-RoleGrid $FilteredRoleList 10
 }
 
 ## ↑ samenvoegen
