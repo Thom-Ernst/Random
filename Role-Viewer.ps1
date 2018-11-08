@@ -153,7 +153,11 @@ $RoleViewer.Add_Load({ Get-Roles })
 
 #endregion GUI }
 
+#Extra Assemblies
+Add-Type -AssemblyName System.DirectoryServices
 Add-Type -AssemblyName PresentationFramework
+
+#Extra Event listeners
 $Searchbar.Add_KeyDown({
     if ($_.KeyCode -eq "Enter") {
         Out-Search
@@ -162,115 +166,167 @@ $Searchbar.Add_KeyDown({
 
 #Write your logic code here
 
-#Privates
-Function Parse-Level10Roles {
-    $path = '.\level10.csv'
-    $q = import-csv $path
-    foreach ($role in $q) {
-        #name
-        #show only nl version
-        if ($role.nrfLocalizedNames) {
-            $name = $role.nrfLocalizedNames
-            $Matches = ''
-            $name -Match '~(.+)\|' | out-null
-            $newname = $Matches[1]
-            $role.nrfLocalizedNames = $newname
+###Privates
+
+Function Get-Search ($level,$search="(objectclass=*)") {
+    switch ($level) {
+        10 {
+            $eDirPath = 'LDAP://sv-arg-idm-p1:389/cn=Level10,cn=RoleDefs,cn=RoleConfig,cn=AppConfig,cn=UserApplication,cn=DriverSet,ou=RESOURCES,o=SYSTEM'
         }
-        #description
-        #show only nl version
-        if ($role.nrfLocalizedDescrs) {
-            $description = $role.nrfLocalizedDescrs
-            $Matches = ''
-            $description -Match '~(.+)\|' | out-null
-            $newdescription = $Matches[1]
-            $role.nrfLocalizedDescrs = $newdescription
-        }
-        #owner
-        #show cn and first ou
-        if ($role.owner) {
-            $owner = $role.owner
-            $Matches = ''
-            $owner -Match 'cn=(.+),ou=(.+),ou.+' | out-null
-            $newowner = $Matches[1,2] -join ','
-            $role.owner = $newowner
-        }
-        #entitlements
-        #show type and parameter of entitlement
-        if ($role.nrfEntitlementRef) {
-            $entitlements = $role.nrfEntitlementRef -split '\|'
-            $arr = New-Object System.Collections.ArrayList
-            foreach ($entitlement in $entitlements) {
-                $Matches = ''
-                $entitlement -Match 'cn=(.+),cn=.*,cn=.*' | out-null
-                $entitlementtype = $Matches[1]
-                $Matches = ''
-                $entitlement -Match '<param>(.+)</param>' | out-null
-                $entitlementparam = $Matches[1]
-                $entitlementfull = "$entitlementtype,$entitlementparam"
-                $arr.Add($entitlementfull) | out-null
-            }
-            # Row for each nrfentitlement type
-            $newentitlements = $arr -join "`r`n"
-            $role.nrfEntitlementRef = $newentitlements
-        }
-        #request def
-        if ($role.nrfRequestDef){
-            $requestdef = $role.nrfRequestDef
-            $Matches = ''
-            $requestdef -Match 'cn=(.+),cn=RequestDefs,cn=.+,ou.+' | out-null
-            $newreqdef = $Matches[1]
-            $role.nrfRequestDef = $newreqdef
+        30 {
+            $eDirPath = 'LDAP://sv-arg-idm-p1:389/cn=Level30,cn=RoleDefs,cn=RoleConfig,cn=AppConfig,cn=UserApplication,cn=DriverSet,ou=RESOURCES,o=SYSTEM'
         }
     }
-    $global:Level10RoleList = $q
+    #Config for Root Connection
+    $eDirUser = "cn=$env:USERNAME,ou=actives,ou=users,o=IDENTITIES"
+    #$eDirUser = 'cn=Admin,ou=RESOURCES,o=SYSTEM' #Testing op DVL en ACC
+    $eDirPWD = $global:pswd.GetNetworkCredential().password
+    $eDIrAuthType = 'None' #Basic authentication
+    
+    #Connection
+    $Root = New-Object System.DirectoryServices.DirectoryEntry -argumentlist $eDirPath,$eDirUser,$eDirPWD,$eDIrAuthType
+    $Query = New-Object System.DirectoryServices.DirectorySearcher
+    $Query.SearchRoot = $Root
+    $Query.Filter = $search
+    $Query.SearchScope = 1
+    $SearchResults = $Query.FindAll()    
+    return $SearchResults
 }
 
-Function Parse-Level30Roles {
-    $path = '.\level30.csv'
-    $q = import-csv $path
-    foreach ($role in $q) {
-        #entitlements
-        #show type and parameter of entitlement
-        if ($role.nrfEntitlementRef) {
-            $entitlements = $role.nrfEntitlementRef -split '\|'
-            $arr = New-Object System.Collections.ArrayList
-            foreach ($entitlement in $entitlements) {
+Function Get-Level10Roles ($search) {
+    $roles = @()
+    foreach ($entry in $search) {
+        $role = $entry.properties
+        if ($role.cn -eq 'generiekerollen'){
+            Write-Debug 'Skipping generiekerollen...'
+        } else {
+            $name = ''
+            $description = ''
+            $owner = ''
+            $entitlements = ''
+            $requestdef = ''
+
+            #name
+            #show only nl version
+            if ($role.nrflocalizednames) {
                 $Matches = ''
-                $entitlement -Match 'cn=(.+),cn=.*,cn=.*' | out-null
-                $entitlementtype = $Matches[1]
-                $Matches = ''
-                $entitlement -Match '<param>(.+)</param>' | out-null
-                $entitlementparam = $Matches[1]
-                $entitlementfull = "$entitlementtype,$entitlementparam"
-                $arr.Add($entitlementfull) | out-null
+                $role.nrflocalizednames[0] -Match '~(.+)\|' | out-null
+                $name = $Matches[1]
             }
-            # Row for each nrfentitlement type
-            $newentitlements = $arr -join "`r`n"
-            $role.nrfEntitlementRef = $newentitlements
+            #description
+            #show only nl version
+            if ($role.nrflocalizeddescrs) {
+                $Matches = ''
+                $role.nrflocalizeddescrs[0] -Match '~(.+)\|' | out-null
+                $description = $Matches[1]
+            }
+            #owner
+            #show cn and first ou
+            if ($role.owner) {
+                $Matches = ''
+                $role.owner[0] -Match 'cn=(.+),ou=(.+),ou.+' | out-null
+                $owner = $Matches[1,2] -join ','
+            }
+            #entitlements
+            #show type and parameter of entitlement
+            if ($role.nrfentitlementref) {
+                $arr = @()
+                foreach ($entitlement in $role.nrfentitlementref) {
+                    $entitlement = [System.Text.Encoding]::ASCII.GetString($entitlement)
+                    $Matches = ''
+                    $entitlement -Match 'cn=(.+),cn=.*,cn=.*' | out-null
+                    $entitlementtype = $Matches[1]
+                    $Matches = ''
+                    $entitlement -Match '<param>(.+)</param>' | out-null
+                    $entitlementparam = $Matches[1]
+                    $entitlementfull = "$entitlementtype,$entitlementparam"
+                    $arr += $entitlementfull
+                }
+                # Row for each nrfentitlement type
+                $entitlements = $arr -join "`r`n"
+            }
+            #request def
+            if ($role.nrfrequestdef){
+                $Matches = ''
+                $role.nrfrequestdef[0] -Match 'cn=(.+),cn=RequestDefs,cn=.+,ou.+' | out-null
+                $requestdef = $Matches[1]
+            }
+            $parsedrole = [PSCustomObject] @{
+                CName = $role.cn[0]
+                Name = $name
+                Description = $description
+                Owner = $owner
+                Entitlements = $entitlements
+                RequestType = $requestdef
+            }
+            $roles += $parsedrole
         }
     }
-    $global:Level30RoleList = $q
+    $global:Level10RoleList = $roles
+}
+
+Function Get-Level30Roles ($search) {
+    $roles = @()
+    foreach ($entry in $search) {
+        $role = $entry.properties
+        if ($role.cn -eq 'Kantoor'){
+            Write-Debug 'Skipping Kantoor...'
+        } else {
+            $entitlements = ''
+            #entitlements
+            #show type and parameter of entitlement
+            if ($role.nrfentitlementref) {
+                $arr = @()
+                foreach ($entitlement in $role.nrfentitlementref) {
+                    $entitlement = [System.Text.Encoding]::ASCII.GetString($entitlement)
+                    $Matches = ''
+                    $entitlement -Match 'cn=(.+),cn=.*,cn=.*' | out-null
+                    $entitlementtype = $Matches[1]
+                    $Matches = ''
+                    $entitlement -Match '<param>(.+)</param>' | out-null
+                    $entitlementparam = $Matches[1]
+                    $entitlementfull = "$entitlementtype,$entitlementparam"
+                    $arr += $entitlementfull
+                }
+                # Row for each nrfentitlement type
+                $entitlements = $arr -join "`r`n"
+            }
+            $parsedrole = [PSCustomObject] @{
+                CName = $role.cn[0]
+                Entitlements = $entitlements
+            }
+            $roles += $parsedrole
+        }
+    }
+    $global:Level30RoleList = $roles
 }
 
 Function Update-RoleInfo {
     $Level10BoxLabelCount.Text = '{0} roles' -f $Level10RoleList.Count
-    $Level10BoxLabelOwners.Text = '{0} roles without an owner' -f ($Level10RoleList | Where-Object owner -eq '').Count
-    $Level10BoxLabelRequests.Text = '{0} roles without approval' -f ($Level10RoleList | Where-Object nrfRequestDef -eq '').Count
+    $Level10BoxLabelOwners.Text = '{0} roles without an owner' -f ($Level10RoleList | Where-Object Owner -eq '').Count
+    $Level10BoxLabelRequests.Text = '{0} roles without approval' -f ($Level10RoleList | Where-Object RequestType -eq '').Count
     #Add various metadata about roles?
     #Roles without owners, ...
     $Level30BoxLabelCount.Text = '{0} functions' -f $Level30RoleList.Count
-    $Level30BoxLabelThaler.Text = '{0} functions with Thaler' -f ($Level30RoleList | Where-Object nrfEntitlementRef -like '*C12_Thaler*').Count
-    $Level30BoxLabelTenforce.Text = '{0} functions with TenForce' -f ($Level30RoleList | Where-Object nrfEntitlementRef -like '*C23_TF*').Count
+    $Level30BoxLabelThaler.Text = '{0} functions with Thaler' -f ($Level30RoleList | Where-Object Entitlements -like '*C12_Thaler*').Count
+    $Level30BoxLabelTenforce.Text = '{0} functions with TenForce' -f ($Level30RoleList | Where-Object Entitlements -like '*C23_TF*').Count
 }
 
-#Publics
+###Publics
 
 Function Get-Roles {
-    $ParseBar.Value = 10
-    Parse-Level10Roles
+    if (!$global:pswd) {
+        #$global:pswd = $host.ui.PromptForCredential("LDAP Authentication","Please give the password for $env:username","$env:username","")
+        $global:pswd = Get-Credential -Message "LDAP Authentication: Please give the password for $env:username" -UserName $env:username
+    }
+    $roles = Get-Search 10
+    $ParseBar.Value = 30
+    $functions = Get-Search 30
     $ParseBar.Value = 50
-    Parse-Level30Roles
-    $ParseBar.Value = 80
+    Get-Level10Roles $roles
+    $ParseBar.Value = 70
+    Get-Level30Roles $functions
+    $ParseBar.Value = 90
     Update-RoleInfo
     $ParseBar.Value = 100
 }
@@ -293,7 +349,7 @@ Function Out-Search {
             }
             0 {
                 #Search Role Name
-                $q = $Level10RoleList | Where-Object nrfLocalizedNames -like "*$search*"
+                $q = $Level10RoleList | Where-Object Name -like "*$search*"
                 if ($q) {
                     $q | Out-GridView -Title "Search result for Role Name: $search"
                 } else {
@@ -302,7 +358,7 @@ Function Out-Search {
             }
             1 {
                 #Search Role Entitlement
-                $q = $Level10RoleList | Where-Object nrfEntitlementRef -like "*$search*"
+                $q = $Level10RoleList | Where-Object Entitlements -like "*$search*"
                 if ($q) {
                     $q | Out-GridView -Title "Search result for Role Entitlement: $search"
                 } else {
@@ -320,7 +376,7 @@ Function Out-Search {
             }
             3 {
                 #Search Function Name
-                $q = $Level30RoleList | Where-Object nrfLocalizedNames -like "*$search*"
+                $q = $Level30RoleList | Where-Object CName -like "*$search*"
                 if ($q) {
                     $q | Out-GridView -Title "Search result for Function Name: $search"
                 } else {
@@ -329,7 +385,7 @@ Function Out-Search {
             }
             4 {
                 #Search Function Entitlement
-                $q = $Level30RoleList | Where-Object nrfEntitlementRef -like "*$search*"
+                $q = $Level30RoleList | Where-Object Entitlements -like "*$search*"
                 if ($q) {
                     $q | Out-GridView -Title "Search result for Function Entitlement: $search"
                 } else {
