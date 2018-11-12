@@ -1,4 +1,4 @@
-﻿Function Get-ADUseraccess ($logon) {
+Function Get-ADUseraccess ($logon) {
     $users = $logon -split ','
     $xls = New-Object -ComObject excel.application
     $xls.Workbooks.Add() | Out-Null
@@ -114,16 +114,50 @@ Function Get-RecursiveGroupmembers ($group) {
                             $row++
                         }
                     }
+                    #AD Groups in Nested AD Groups
+                    elseif ($nestedadgroupmembers | Where-Object objectClass -eq 'group') {
+                        $doublenested = $true
+                        $sheet.Cells.Item(1,$column+1) = 'Member (Group+1)'
+                        $sheet.Cells.Item(1,$column+2) = 'Title (Member+1)'
+                        $sheet.Cells.Item(1,$column+3) = 'Title+1'
+                        $column += 1
+                        foreach ($nestedadgroup in ($groupmembers | Where-Object objectClass -eq 'group')) {
+                            $sheet.Cells.Item($row, $column) = $nestedadgroup.Name
+                            $nestedadgroupmembers = Get-ADGroupMember $nestedadgroup.Name
+                            if ($nestedadgroupmembers | Where-Object objectClass -eq 'user') {
+                                foreach ($nesteduser in ($nestedadgroupmembers | Where-Object objectClass -eq 'user')) {
+                                    $sheet.Cells.Item($row, $column+1) = $nesteduser.Name
+                                    $nestedtitle = Get-Aduser $nesteduser -Properties Title | Select-Object Title
+                                    if ($nestedtitle) {
+                                        $sheet.Cells.Item($row, $column+2) = $nestedtitle.Title
+                                    }
+                                    else {
+                                        $sheet.Cells.Item($row, $column+2) = "No Job title!"
+                                        $sheet.Cells.Item($row,$column+2).Interior.ColorIndex = 3
+                                        Write-Host "Could not find $user title!"
+                                    }
+                                    $row++
+                                }
+                            }   
+                        }
+                        $column -= 1
+                    }
+                    else {
+                        $row++
+                    }
                 }
             }
-        $adgroup = $null
         }
         else {
             $sheet.Cells.Item($row, $column) = "Could not find $grp"
             $sheet.Cells.Item($row,$column).Interior.ColorIndex = 3
             Write-Host "Could not find $grp!"
         }
+        $adgroup = $null
         $column += 3
+        if ($doublenested) {
+            $column += 1
+        }
     }
     $usedRange = $sheet.UsedRange						
     $usedRange.EntireColumn.AutoFit() | Out-Null
