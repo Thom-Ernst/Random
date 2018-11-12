@@ -115,17 +115,19 @@ Function Get-RecursiveGroupmembers ($group) {
                         }
                     }
                     #AD Groups in Nested AD Groups
-                    elseif ($nestedadgroupmembers | Where-Object objectClass -eq 'group') {
+                    if ($nestedadgroupmembers | Where-Object objectClass -eq 'group') {
                         $doublenested = $true
                         $sheet.Cells.Item(1,$column+1) = 'Member (Group+1)'
                         $sheet.Cells.Item(1,$column+2) = 'Title (Member+1)'
                         $sheet.Cells.Item(1,$column+3) = 'Title+1'
+                        $sheet.Cells.Item(1,$column+3).Font.Bold = $True
                         $column += 1
-                        foreach ($nestedadgroup in ($groupmembers | Where-Object objectClass -eq 'group')) {
+                        $doublenestedgroupmembers = Get-ADGroupMember $nestedadgroup.name
+                        foreach ($nestedadgroup in ($doublenestedgroupmembers | Where-Object objectClass -eq 'group')) {
                             $sheet.Cells.Item($row, $column) = $nestedadgroup.Name
-                            $nestedadgroupmembers = Get-ADGroupMember $nestedadgroup.Name
-                            if ($nestedadgroupmembers | Where-Object objectClass -eq 'user') {
-                                foreach ($nesteduser in ($nestedadgroupmembers | Where-Object objectClass -eq 'user')) {
+                            $tripplenestedadgroupmembers = Get-ADGroupMember $nestedadgroup.Name
+                            if ($tripplenestedadgroupmembers | Where-Object objectClass -eq 'user') {
+                                foreach ($nesteduser in ($tripplenestedadgroupmembers | Where-Object objectClass -eq 'user')) {
                                     $sheet.Cells.Item($row, $column+1) = $nesteduser.Name
                                     $nestedtitle = Get-Aduser $nesteduser -Properties Title | Select-Object Title
                                     if ($nestedtitle) {
@@ -138,17 +140,18 @@ Function Get-RecursiveGroupmembers ($group) {
                                     }
                                     $row++
                                 }
+                            } else {
+                                $row++
                             }   
                         }
                         $column -= 1
                     }
-                    else {
+                    if (!$nestedadgroupmembers) {
                         $row++
                     }
                 }
             }
-        }
-        else {
+        } else {
             $sheet.Cells.Item($row, $column) = "Could not find $grp"
             $sheet.Cells.Item($row,$column).Interior.ColorIndex = 3
             Write-Host "Could not find $grp!"
